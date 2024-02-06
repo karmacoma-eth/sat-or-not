@@ -5,7 +5,7 @@ import z3
 variable_names = {i: chr(96 + i) for i in range(1, 27)}  # Original variable names, a-z
 variable_names.update({-i: f"!{chr(96 + i)}" for i in range(1, 27)})  # Negated variable names
 
-def generate_3sat_instance(n, k):
+def generate_3sat_instance(n, k) -> list[tuple[int]]:
     """
     Generates a random 3-SAT instance.
 
@@ -27,7 +27,7 @@ def generate_3sat_instance(n, k):
     return clauses
 
 
-def generate_msat_instance(n, m, k):
+def generate_msat_instance(n: int, m: int, k: int) -> list[tuple[int]]:
     """
     Generates a random m-SAT instance with n variables, m variables per clause, and k clauses.
 
@@ -57,7 +57,7 @@ def generate_msat_instance(n, m, k):
     return clauses
 
 
-def render(clauses, or_symbol="∨", and_symbol="∧"):
+def render(clauses: list[tuple[int]], or_symbol="∨", and_symbol="∧") -> str:
     """
     Renders a list of 3-SAT clauses into a human-readable string.
 
@@ -72,7 +72,7 @@ def render(clauses, or_symbol="∨", and_symbol="∧"):
     return f" {and_symbol} ".join(clause_strings)
 
 
-def render_clause(clause, or_symbol="∨"):
+def render_clause(clause: tuple[int], or_symbol: str ="∨") -> str:
     """
     Renders a single clause into a human-readable string.
 
@@ -85,7 +85,7 @@ def render_clause(clause, or_symbol="∨"):
     return f"({f' {or_symbol} '.join(variable_names[literal] for literal in clause)})"
 
 
-def solve_cnf_instance(clauses):
+def solve_cnf_instance(clauses: list[tuple[int]]):
     solver = z3.Solver()
 
     # Generate Z3 Boolean variables. Assuming variables in clauses are 1-indexed and can be negative for negation.

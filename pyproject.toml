@@ -8,12 +8,17 @@ authors = [
 dependencies = [
     "fastapi>=0.109.0",
     "uvicorn>=0.27.0.post1",
+    "cairosvg>=2.7.1",
+    "z3-solver>=4.12.5.0",
+    "python-multipart>=0.0.6",
+    "yarl>=1.9.4",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
 
 [project.scripts]
 hello = "pyframe.main:root"
+logic = "pyframe.logic:main"
 
 [build-system]
 requires = ["hatchling"]
