@@ -53,6 +53,9 @@ def root(request: Request):
                     <meta property="fc:frame:image" content="{banner_url}" />
                     <meta property="fc:frame" content="vNext" />
                     <meta property="fc:frame:button:1" content="PLAY" />
+                    <meta property="fc:frame:button:2" content="Github" />
+                    <meta property="fc:frame:button:2:action" content="link" />
+                    <meta property="fc:frame:button:2:target" content="https://github.com/karmacoma-eth/sat-or-not" />
                     <meta property="fc:frame:post_url" content="{base_url}play" />
                 </head>
                 <body>
