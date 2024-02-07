@@ -56,12 +56,7 @@ def root(request: Request):
                     <meta property="fc:frame:button:2" content="Github" />
                     <meta property="fc:frame:button:2:action" content="link" />
                     <meta property="fc:frame:button:2:target" content="https://github.com/karmacoma-eth/sat-or-not" />
-                    <meta property="fc:frame:button:3" content="3SAT?" />
-                    <meta property="fc:frame:button:3:action" content="link" />
-                    <meta property="fc:frame:button:3:target" content="https://en.wikipedia.org/wiki/Boolean_satisfiability_problem" />
                     <meta property="fc:frame:post_url" content="{base_url}play" />
-
-
                 </head>
                 <body>
                     <div>
@@ -203,6 +198,9 @@ async def verify(request: Request, clauses: str, button_index: int | None = None
                     <meta property="fc:frame:image" content="{result_image_url}" />
                     <meta property="fc:frame" content="vNext" />
                     <meta property="fc:frame:button:1" content="{play_label}" />
+                    <meta property="fc:frame:button:2" content="Wikipedia" />
+                    <meta property="fc:frame:button:2:action" content="link" />
+                    <meta property="fc:frame:button:2:target" content="https://en.wikipedia.org/wiki/Boolean_satisfiability_problem" />
                     <meta property="fc:frame:post_url" content="{play_url}" />
                 </head>
                 <body>
