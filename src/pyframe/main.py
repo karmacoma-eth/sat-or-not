@@ -152,7 +152,7 @@ def play(request: Request):
 
 @app.post("/verify")
 @app.get("/verify")
-async def verify(request: Request, clauses: str, button_index: int):
+async def verify(request: Request, clauses: str, button_index: str | None = None):
     if not clauses:
         return "No clauses provided", 400
 
