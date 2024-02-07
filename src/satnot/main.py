@@ -87,7 +87,7 @@ def parse(encoded_clauses: str) -> list[tuple[int]]:
 def encode_model(model: Optional[dict]) -> str:
     # e.g. {x1: True, x2: False} -> 'true_false'
     if not model:
-        return ""
+        return "unsat"
 
     return "_".join(str(model[d]).lower() for d in sorted(model.keys()))
 
@@ -113,6 +113,8 @@ def play(request: Request):
     """
 
     base_url = URL(str(request.base_url))
+
+    # EXAMPLE_UNSAT_PROBLEM = [(2, -2, 2), (-3, -2, -2), (1, 2, -3), (-1, -1, -2), (1, 3, 3), (-1, 2, 2)]
     problem = generate_msat_instance(3, 3, 6)
     clauses = encode(problem)
 
@@ -256,21 +258,21 @@ async def result_image(model: str, correct: bool, clauses: str):
 
     result_color = "green" if correct else "red"
     result_text = "Correct!" if correct else "WRONG"
-    result_svg = f'<text x="36%" y="10%" font-size="120" font-family="Arial" fill="{result_color}">{result_text}</text>'
+    result_svg = f'<text x="50%" text-anchor="middle" y="12%" font-size="120" font-family="Arial" fill="{result_color}">{result_text}</text>'
 
     parsed_clauses = parse(clauses)
     clause_strings = [render_clause(c, or_symbol=LOGICAL_OR) for c in parsed_clauses]
     clause_strings[1:] = [f"{LOGICAL_AND} " + clause for clause in clause_strings[1:]]
     clauses_svgs = [
-        f'<text x="38%" y="{20 + i * 12}%" font-size="72" font-family="Arial" fill="white">{clause}</text>'
+        f'<text x="40%" y="{22 + i * 10}%" font-size="72" font-family="Arial" fill="white">{clause}</text>'
         for i, clause in enumerate(clause_strings)
     ]
     clauses_svg = "\n".join(clauses_svgs)
 
     model_text = (
-        "is UNSAT" if model is None else f"is satisfied by {render_assignments(model)}"
+        "is UNSAT" if model == "unsat" else f"is satisfied by {render_assignments(model)}"
     )
-    model_svg = f'<text x="8%" y="92%" font-size="90" font-family="Arial" fill="white">{model_text}</text>'
+    model_svg = f'<text x="50%" text-anchor="middle" y="85%" font-size="90" font-family="Arial" fill="white">{model_text}</text>'
 
     svg_content = f"""
     <svg width="1910" height="1000" xmlns="http://www.w3.org/2000/svg">

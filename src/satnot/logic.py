@@ -143,11 +143,11 @@ def print_stats(n, m, k, iterations=1000):
         if model is not None:
             sat_count += 1
             if example_sat is None:
-                example_sat = rendered_formula
+                example_sat = clauses
 
         else:
             if example_unsat is None:
-                example_unsat = rendered_formula
+                example_unsat = clauses
 
     print(f"Total generation time: {sum(gen_times):.2f}s")
     print(f"Total rendering time: {sum(render_times):.2f}s")
