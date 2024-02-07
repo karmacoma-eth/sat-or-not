@@ -158,8 +158,11 @@ def print_stats(n, m, k, iterations=1000):
 
 
 def main():
-    n = 3
-    m = 3
-    k = 6
+    import sys
+    n, m, k = (int(sys.argv[x]) for x in (1, 2, 3))
     print(f"Stats for {n} variables, {m} variables per clause, {k} clauses")
     print_stats(n, m, k)
+
+
+if __name__ == "__main__":
+    main()
