@@ -152,7 +152,7 @@ def play(request: Request):
 
 @app.post("/verify")
 @app.get("/verify")
-async def verify(request: Request, clauses: str, button_index: str | None = None):
+async def verify(request: Request, clauses: str, button_index: int | None = None):
     if not clauses:
         return "No clauses provided", 400
 
@@ -160,7 +160,7 @@ async def verify(request: Request, clauses: str, button_index: str | None = None
     logger.debug(f"Content-Type: {content_type}")
     if content_type == "application/json":
         body = await request.json()
-        button_index = body["untrustedData"]["buttonIndex"]
+        button_index = int(body["untrustedData"]["buttonIndex"])
 
     if button_index not in (SAT_BUTTON_ID, NOT_SAT_BUTTON_ID):
         return "Invalid button index", 400
