@@ -1,13 +1,20 @@
 # pyframe
 hacking on Farcaster frames in Python
 
+```sh
+# run the app as a local web server
+rye run uvicorn satnot.main:app --reload
+```
+
+## Testing
+
+Testing locally:
 
 ```sh
-# run the FastAPI app directly
-rye run hello
+# run the local web server, then
+open http://127.0.0.1:8000
 
-# run the app as a local web server
-rye run uvicorn pyframe.main:app --reload
+# click around, requests are accessible via GET to support local testing
 ```
 
 ## Deploying
@@ -19,5 +26,6 @@ On Render:
 pip install -r requirements.lock
 
 # deploy
-uvicorn pyframe.main:app --host 0.0.0.0 --port 10000
+uvicorn satnot.main:app --host 0.0.0.0 --port 10000
 ```
+
