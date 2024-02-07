@@ -26,7 +26,11 @@ build-backend = "hatchling.build"
 
 [tool.rye]
 managed = true
-dev-dependencies = []
+dev-dependencies = [
+    "ruff>=0.2.1",
+    "pytest>=8.0.0",
+    "pyright>=1.1.350",
+]
 
 [tool.hatch.metadata]
 allow-direct-references = true

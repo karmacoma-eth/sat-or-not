@@ -3,14 +3,13 @@ import io
 import logging
 import textwrap
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from multidict import MultiDict
-from typing import Annotated
+from typing import Optional
 from yarl import URL
 
-from .logic import *
+from .logic import render_clause, generate_msat_instance, solve_cnf_instance
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -30,6 +29,7 @@ LOGICAL_OR = "|"
 SAT_BUTTON_ID = 1
 NOT_SAT_BUTTON_ID = 2
 
+
 @app.get("/")
 def root(request: Request):
     """
@@ -42,7 +42,8 @@ def root(request: Request):
 
     return HTMLResponse(
         status_code=200,
-        content=textwrap.dedent(f"""
+        content=textwrap.dedent(
+            f"""
             <!DOCTYPE html>
             <html>
                 <head>
@@ -63,19 +64,39 @@ def root(request: Request):
                     </div>
                 </body>
             </html>
-        """)
+        """
+        ),
     )
 
 
-def as_multidict(clauses: list[tuple[int]]) -> MultiDict:
-    tuples_as_strings = ['.'.join(str(x) for x in clause) for clause in clauses]
-    query_params = [('clauses', t) for t in tuples_as_strings]
-    return MultiDict(query_params)
+def encode(clauses: list[tuple[int]]) -> str:
+    # e.g. [(1, 3, 1), (1, -2, 1)] -> '1.3.1_1.-2.1'
+    tuples_as_strings = [".".join(str(x) for x in clause) for clause in clauses]
+    return "_".join(tuples_as_strings)
 
 
-def parse(encoded_clauses: list[str]) -> list[tuple[int]]:
-    # ex: ['1.3.1', '1.2.1'] -> [(1, 3, 1), (1, 2, 1)]
-    return [tuple(int(x) for x in clause.split('.')) for clause in encoded_clauses]
+def parse(encoded_clauses: str) -> list[tuple[int]]:
+    # ex: ['1.3.1_1.-2.1'] -> [(1, 3, 1), (1, -2, 1)]
+    clauses = encoded_clauses.split("_")
+    return [tuple(int(x) for x in clause.split(".")) for clause in clauses]
+
+
+def encode_model(model: Optional[dict]) -> str:
+    # e.g. {x1: True, x2: False} -> 'true_false'
+    if not model:
+        return ""
+
+    return "_".join(str(model[d]).lower() for d in sorted(model.keys()))
+
+
+def render_assignments(encoded_model: str) -> str:
+    # e.g. 'true_false' -> 'a=true, b=false'
+
+    values = encoded_model.split("_")
+    assignments = [f"{chr(97 + i)}={value}" for i, value in enumerate(values)]
+
+    decoded_string = ", ".join(assignments)
+    return decoded_string
 
 
 @app.post("/play")
@@ -90,15 +111,15 @@ def play(request: Request):
 
     base_url = URL(str(request.base_url))
     problem = generate_msat_instance(3, 3, 6)
-    problem_multidict = as_multidict(problem)
+    clauses = encode(problem)
 
-    # TODO: add timestamp to bust caching
-    problem_image_url = base_url / "problem_image" % problem_multidict
-    verify_url = base_url / "verify" % problem_multidict
+    problem_image_url = base_url / "problem_image" % {"clauses": clauses}
+    verify_url = base_url / "verify" % {"clauses": clauses}
 
     return HTMLResponse(
         status_code=200,
-        content=textwrap.dedent(f"""
+        content=textwrap.dedent(
+            f"""
             <!DOCTYPE html>
             <html>
                 <head>
@@ -124,47 +145,47 @@ def play(request: Request):
                     </form>
                 </body>
             </html>
-        """)
+        """
+        ),
     )
+
 
 @app.post("/verify")
 @app.get("/verify")
-async def verify(
-        request: Request, clauses: Annotated[list[str] | None, Query()] = None,
-        button_index: Annotated[int | None, Query()] = None):
-
+async def verify(request: Request, clauses: str, button_index: int):
     if not clauses:
         return "No clauses provided", 400
 
-    content_type = request.headers.get('content-type')
+    content_type = request.headers.get("content-type")
     logger.debug(f"Content-Type: {content_type}")
-    if content_type == 'application/json':
+    if content_type == "application/json":
         body = await request.json()
-        button_index = body['untrustedData']['buttonIndex']
+        button_index = body["untrustedData"]["buttonIndex"]
 
     if button_index not in (SAT_BUTTON_ID, NOT_SAT_BUTTON_ID):
         return "Invalid button index", 400
 
-    # TODO: verify user data
-
-    expected = 'sat' if button_index == SAT_BUTTON_ID else 'unsat'
+    expected = "sat" if button_index == SAT_BUTTON_ID else "unsat"
     parsed_clauses = parse(clauses)
     model = solve_cnf_instance(parsed_clauses)
 
-    actual = 'sat' if model is not None else 'unsat'
-    correct = actual == expected
-
-    model_dict = {str(d): model[d] for d in model.decls()}
+    actual = "sat" if model is not None else "unsat"
+    correct_str = str(actual == expected)
 
     base_url = URL(str(request.base_url))
-    parsed_clauses = parse(clauses)
-    result_image_url = base_url / "result_image" % as_multidict(parsed_clauses) % {'model': model_dict, 'correct': correct}
+    query_params = {
+        "model": encode_model(model),
+        "correct": correct_str,
+        "clauses": clauses,
+    }
+    result_image_url = base_url / "result_image" % query_params
     play_url = base_url / "play"
     play_label = "PLAY AGAIN"
 
     return HTMLResponse(
         status_code=200,
-        content=textwrap.dedent(f"""
+        content=textwrap.dedent(
+            f"""
             <!DOCTYPE html>
             <html>
                 <head>
@@ -185,64 +206,75 @@ async def verify(
                     </div>
                 </body>
             </html>
-        """)
+        """
+        ),
     )
 
 
-
 @app.get("/problem_image")
-async def problem_image(clauses: Annotated[list[str] | None, Query()] = None):
-    # TODO: add timestamp to bust caching
+async def problem_image(clauses: str):
+    # no need for a timestamp to bust caching, the same inputs should always produce the same result
     if not clauses:
-        return "No clauses provided", 400
+        return "Parameter `clauses` is missing", 400
 
     parsed_clauses = parse(clauses)
-    clause_strings = [render_clause(clause, or_symbol=LOGICAL_OR) for clause in parsed_clauses]
+    clause_strings = [render_clause(c, or_symbol=LOGICAL_OR) for c in parsed_clauses]
     clause_strings[1:] = [f"{LOGICAL_AND} " + clause for clause in clause_strings[1:]]
-    svg_clause_strings = [f'<text x="35%" y="{18 + i * 14}%" font-size="120" font-family="Arial" fill="white">{clause}</text>' for i, clause in enumerate(clause_strings)]
+    clauses_svg = [
+        f'<text x="35%" y="{18 + i * 14}%" font-size="120" font-family="Arial" fill="white">{clause}</text>'
+        for i, clause in enumerate(clause_strings)
+    ]
 
-    svg_content = f'''<svg width="1910" height="1000" xmlns="http://www.w3.org/2000/svg">
+    svg_content = f"""<svg width="1910" height="1000" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="black" />
-        {'\n    '.join(svg_clause_strings)}
-    </svg>'''
+        {'\n'.join(clauses_svg)}
+    </svg>"""
 
     # Convert SVG to PNG
-    png_content = cairosvg.svg2png(bytestring=svg_content.encode('utf-8'))
+    png_content = cairosvg.svg2png(bytestring=svg_content.encode("utf-8"))
 
     # Return the PNG content in a StreamingResponse, setting the media type to image/png
     return StreamingResponse(io.BytesIO(png_content), media_type="image/png")
 
 
 @app.get("/result_image")
-async def result_image(model: dict, correct: bool, clauses: Annotated[list[str] | None, Query()] = None):
-    # TODO: add timestamp to bust caching
+async def result_image(model: str, correct: bool, clauses: str):
+    # no need for a timestamp to bust caching, the same inputs should always produce the same result
 
     if not clauses:
-        return "No clauses provided", 400
+        return "Parameter `clauses` is missing", 400
 
-    result_svg = f'<text x="35%" y="50%" font-size="120" font-family="Arial" fill="{'green' if correct else 'red'}">{'Correct!' if correct else 'WRONG'}</text>'
+    if correct is None:
+        return "Parameter `correct` is missing", 400
+
+    result_color = "green" if correct else "red"
+    result_text = "Correct!" if correct else "WRONG"
+    result_svg = f'<text x="36%" y="10%" font-size="120" font-family="Arial" fill="{result_color}">{result_text}</text>'
 
     parsed_clauses = parse(clauses)
-    clause_strings = [render_clause(clause, or_symbol=LOGICAL_OR) for clause in parsed_clauses]
+    clause_strings = [render_clause(c, or_symbol=LOGICAL_OR) for c in parsed_clauses]
     clause_strings[1:] = [f"{LOGICAL_AND} " + clause for clause in clause_strings[1:]]
-    svg_clause_strings = [f'<text x="35%" y="{18 + i * 14}%" font-size="90" font-family="Arial" fill="white">{clause}</text>' for i, clause in enumerate(clause_strings)]
+    clauses_svg = [
+        f'<text x="38%" y="{20 + i * 12}%" font-size="72" font-family="Arial" fill="white">{clause}</text>'
+        for i, clause in enumerate(clause_strings)
+    ]
 
-    if model is None:
-        model_svg = f'<text x="35%" y="70%" font-size="90" font-family="Arial" fill="white">is UNSAT</text>'
-    else:
-        model_svg = f'<text x="35%" y="70%" font-size="90" font-family="Arial" fill="white">is SAT with model {model}</text>'
+    model_text = (
+        "is UNSAT" if model is None else f"is satisfied by {render_assignments(model)}"
+    )
+    model_svg = f'<text x="8%" y="92%" font-size="90" font-family="Arial" fill="white">{model_text}</text>'
 
-    svg_content = f'''
+    svg_content = f"""
     <svg width="1910" height="1000" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="black" />
         {result_svg}
-        {'\n    '.join(svg_clause_strings)}
+        {'\n    '.join(clauses_svg)}
         {model_svg}
     </svg>
-    '''
+    """
 
     # Convert SVG to PNG
-    png_content = cairosvg.svg2png(bytestring=svg_content.encode('utf-8'))
+    png_content = cairosvg.svg2png(bytestring=svg_content.encode("utf-8"))
 
     # Return the PNG content in a StreamingResponse, setting the media type to image/png
     return StreamingResponse(io.BytesIO(png_content), media_type="image/png")

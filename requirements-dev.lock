@@ -20,12 +20,19 @@ fastapi==0.109.0
 h11==0.14.0
 idna==3.6
 importlib-resources==6.1.1
+iniconfig==2.0.0
 multidict==6.0.5
+nodeenv==1.8.0
+packaging==23.2
 pillow==10.2.0
+pluggy==1.4.0
 pycparser==2.21
 pydantic==2.6.0
 pydantic-core==2.16.1
+pyright==1.1.350
+pytest==8.0.0
 python-multipart==0.0.6
+ruff==0.2.1
 sniffio==1.3.0
 starlette==0.35.1
 tinycss2==1.2.1
@@ -34,3 +41,5 @@ uvicorn==0.27.0.post1
 webencodings==0.5.1
 yarl==1.9.4
 z3-solver==4.12.5.0
+# The following packages are considered to be unsafe in a requirements file:
+setuptools==69.0.3

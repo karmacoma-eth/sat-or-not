@@ -1,9 +1,14 @@
 import random
 import z3
 
+from typing import Optional
+
 # Map from variable index to variable name
 variable_names = {i: chr(96 + i) for i in range(1, 27)}  # Original variable names, a-z
-variable_names.update({-i: f"!{chr(96 + i)}" for i in range(1, 27)})  # Negated variable names
+variable_names.update(
+    {-i: f"!{chr(96 + i)}" for i in range(1, 27)}
+)  # Negated variable names
+
 
 def generate_3sat_instance(n, k) -> list[tuple[int]]:
     """
@@ -43,7 +48,6 @@ def generate_msat_instance(n: int, m: int, k: int) -> list[tuple[int]]:
     clauses = []
     used_clauses = set()
 
-
     while len(clauses) < k:
         # Allow repetition of variables if m > n
         variables = [random.randint(1, n) for _ in range(m)]
@@ -72,7 +76,7 @@ def render(clauses: list[tuple[int]], or_symbol="∨", and_symbol="∧") -> str:
     return f" {and_symbol} ".join(clause_strings)
 
 
-def render_clause(clause: tuple[int], or_symbol: str ="∨") -> str:
+def render_clause(clause: tuple[int], or_symbol: str = "∨") -> str:
     """
     Renders a single clause into a human-readable string.
 
@@ -85,23 +89,29 @@ def render_clause(clause: tuple[int], or_symbol: str ="∨") -> str:
     return f"({f' {or_symbol} '.join(variable_names[literal] for literal in clause)})"
 
 
-def solve_cnf_instance(clauses: list[tuple[int]]):
+def solve_cnf_instance(clauses: list[tuple[int]]) -> Optional[dict]:
     solver = z3.Solver()
 
     # Generate Z3 Boolean variables. Assuming variables in clauses are 1-indexed and can be negative for negation.
     max_var_index = max(abs(var) for clause in clauses for var in clause)
-    variables = {i: z3.Bool(f'x{i}') for i in range(1, max_var_index + 1)}
+    variables = {i: z3.Bool(f"x{i}") for i in range(1, max_var_index + 1)}
 
     # translate into z3 clauses
     for clause in clauses:
         # Convert clause to Z3 format
-        z3_clause = z3.Or([variables[abs(var)] if var > 0 else z3.Not(variables[abs(var)]) for var in clause])
+        z3_clause = z3.Or(
+            [
+                variables[abs(var)] if var > 0 else z3.Not(variables[abs(var)])
+                for var in clause
+            ]
+        )
         solver.add(z3_clause)
 
     # Solve the instance
 
     if solver.check() == z3.sat:
-        return solver.model()
+        model = solver.model()
+        return {symbol.name(): bool(model[symbol]) for symbol in model.decls()}
     else:
         return None  # No solution found
 
