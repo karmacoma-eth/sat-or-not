@@ -1,4 +1,5 @@
-# pyframe
+# sat-or-not
+
 hacking on Farcaster frames in Python
 
 ```sh

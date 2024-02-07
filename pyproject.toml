@@ -1,5 +1,5 @@
 [project]
-name = "pyframe"
+name = "sat-or-not"
 version = "0.1.0"
 description = "hacking on frames, in Python"
 authors = [
@@ -17,8 +17,8 @@ readme = "README.md"
 requires-python = ">= 3.8"
 
 [project.scripts]
-hello = "pyframe.main:root"
-logic = "pyframe.logic:main"
+hello = "satnot.main:root"
+logic = "satnot.logic:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -36,4 +36,4 @@ dev-dependencies = [
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pyframe"]
+packages = ["src/satnot"]
