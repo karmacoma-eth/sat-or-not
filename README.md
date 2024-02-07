@@ -1,6 +1,6 @@
 # sat-or-not
 
-hacking on Farcaster frames in Python
+[Play it](https://warpcast.com/karma/0x5df8b239)
 
 As a [Frame](https://docs.farcaster.xyz/reference/frames/spec), the buttons are wired like this:
 
