@@ -220,14 +220,15 @@ async def problem_image(clauses: str):
     parsed_clauses = parse(clauses)
     clause_strings = [render_clause(c, or_symbol=LOGICAL_OR) for c in parsed_clauses]
     clause_strings[1:] = [f"{LOGICAL_AND} " + clause for clause in clause_strings[1:]]
-    clauses_svg = [
+    clauses_svgs = [
         f'<text x="35%" y="{18 + i * 14}%" font-size="120" font-family="Arial" fill="white">{clause}</text>'
         for i, clause in enumerate(clause_strings)
     ]
+    clauses_svg = "\n".join(clauses_svgs)
 
     svg_content = f"""<svg width="1910" height="1000" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="black" />
-        {'\n'.join(clauses_svg)}
+        {clauses_svg}
     </svg>"""
 
     # Convert SVG to PNG
@@ -254,10 +255,11 @@ async def result_image(model: str, correct: bool, clauses: str):
     parsed_clauses = parse(clauses)
     clause_strings = [render_clause(c, or_symbol=LOGICAL_OR) for c in parsed_clauses]
     clause_strings[1:] = [f"{LOGICAL_AND} " + clause for clause in clause_strings[1:]]
-    clauses_svg = [
+    clauses_svgs = [
         f'<text x="38%" y="{20 + i * 12}%" font-size="72" font-family="Arial" fill="white">{clause}</text>'
         for i, clause in enumerate(clause_strings)
     ]
+    clauses_svg = "\n".join(clauses_svgs)
 
     model_text = (
         "is UNSAT" if model is None else f"is satisfied by {render_assignments(model)}"
@@ -268,7 +270,7 @@ async def result_image(model: str, correct: bool, clauses: str):
     <svg width="1910" height="1000" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="black" />
         {result_svg}
-        {'\n    '.join(clauses_svg)}
+        {clauses_svg}
         {model_svg}
     </svg>
     """
