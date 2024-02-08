@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from typing import Optional
 from yarl import URL
 
-from .logic import render_clause, generate_msat_instance, solve_cnf_instance
+from .logic import render_clause, generate_msat_instance, dpll, Assignment
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -84,12 +84,12 @@ def parse(encoded_clauses: str) -> list[tuple[int]]:
     return [tuple(int(x) for x in clause.split(".")) for clause in clauses]
 
 
-def encode_model(model: Optional[dict]) -> str:
-    # e.g. {x1: True, x2: False} -> 'true_false'
-    if not model:
+def encode_model(model: Assignment) -> str:
+    # e.g. [True, False] -> 'true_false'
+    if model is None:
         return "unsat"
 
-    return "_".join(str(model[d]).lower() for d in sorted(model.keys()))
+    return "_".join(str(x).lower() for x in model)
 
 
 def render_assignments(encoded_model: str) -> str:
@@ -172,7 +172,7 @@ async def verify(request: Request, clauses: str, button_index: int | None = None
 
     expected = "sat" if button_index == SAT_BUTTON_ID else "unsat"
     parsed_clauses = parse(clauses)
-    model = solve_cnf_instance(parsed_clauses)
+    model: Assignment | None = dpll(parsed_clauses)
 
     actual = "sat" if model is not None else "unsat"
     correct_str = str(actual == expected)
@@ -270,7 +270,9 @@ async def result_image(model: str, correct: bool, clauses: str):
     clauses_svg = "\n".join(clauses_svgs)
 
     model_text = (
-        "is UNSAT" if model == "unsat" else f"is satisfied by {render_assignments(model)}"
+        "is UNSAT"
+        if model == "unsat"
+        else f"is satisfied by {render_assignments(model)}"
     )
     model_svg = f'<text x="50%" text-anchor="middle" y="85%" font-size="90" font-family="Arial" fill="white">{model_text}</text>'
 

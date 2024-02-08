@@ -1,16 +1,130 @@
 import random
-import z3
 
 from typing import Optional
 
+type Literal = int
+type Clause = tuple[Literal]
+type Formula = list[Clause]
+type Assignment = list[bool | None]
+
 # Map from variable index to variable name
 variable_names = {i: chr(96 + i) for i in range(1, 27)}  # Original variable names, a-z
+
+# Negated variable names
 variable_names.update(
     {-i: f"!{chr(96 + i)}" for i in range(1, 27)}
-)  # Negated variable names
+)
 
 
-def generate_3sat_instance(n, k) -> list[tuple[int]]:
+def cardinality(formula: Formula) -> int:
+    """
+    Returns the number of variables in a formula.
+
+    Parameters:
+    - formula: A list of clauses, where each clause is a tuple of literals.
+
+    Note:
+    - variables are be 1-indexed, and negative integers represent negated variables
+    - there should be no gaps in variable numbering. For example, if there are 3 variables,
+      they should be numbered 1, 2, 3 -- not 1, 2, 4.
+
+    Returns:
+    The number of variables in the formula
+    """
+    return max(abs(literal) for clause in formula for literal in clause)
+
+
+def evaluate(literal: Literal, assignment: Assignment) -> Optional[bool]:
+    """
+    Evaluates a literal given a partial assignment of variables to truth values.
+
+    Parameters:
+    - literal: A positive or negative integer representing a variable or its negation.
+    - assignment: A partial assignment of variables to truth values.
+
+    Returns:
+    The truth value of the literal if defined in the assignment
+    """
+    assert literal != 0, "invalid literal"
+
+    if literal > 0:
+        return assignment[literal]
+
+    if assignment[-literal] is None:
+        return None
+
+    return not assignment[-literal]
+
+
+def clause_satisfied(clause: Clause, assignment: Assignment) -> bool:
+    """
+    A clause is satisfied if at least one of the literals in the clause is true under the given assignment.
+    """
+
+    return any(evaluate(literal, assignment) is True for literal in clause)
+
+
+def clause_unsatisfied(clause: Clause, assignment: Assignment) -> bool:
+    """
+    A clause is unsatisfied if all the literals in the clause are false under the given assignment.
+    """
+
+    return all(evaluate(literal, assignment) is False for literal in clause)
+
+
+def dpll(formula: Formula, assignment: Assignment | None = None) -> Assignment | None:
+    """
+    DPLL algorithm for solving CNF formulas.
+
+    Parameters:
+    - formula: A list of clauses, where each clause is a tuple of literals.
+    - assignment: A partial assignment of variables to truth values.
+
+    Note:
+    - variables are be 1-indexed, and negative integers represent negated variables
+    - there should be no gaps in variable numbering. For example, if there are 3 variables,
+      they should be numbered 1, 2, 3 -- not 1, 2, 4.
+    - scales ok with the number of clauses, but poorly with the number of variables
+
+    Returns:
+    A satisfying assignment if one exists, otherwise None.
+    """
+
+    if assignment is None:
+        assignment = [None] * (cardinality(formula) + 1)
+
+    # If all clauses are satisfied, return the current assignment
+    if all(clause_satisfied(clause, assignment) for clause in formula):
+        # Remove the dummy variable at index 0
+        return assignment[1:]
+
+    # If any clause is unsatisfied, return None
+    if any(clause_unsatisfied(clause, assignment) for clause in formula):
+        return None
+
+    # Choose a variable to assign
+    # (pick the first unassigned variable instead of a random one, for simplicity)
+    var = next((i for i, value in enumerate(assignment) if value is None), None)
+    assert var is not None, "No unassigned variables left"
+
+    # Try setting the variable to True
+    assignment[var] = True
+    result = dpll(formula, assignment)
+    if result is not None:
+        return result
+
+    # Try setting the variable to False
+    assignment[var] = False
+    result = dpll(formula, assignment)
+    if result is not None:
+        return result
+
+    # If neither assignment leads to a satisfying solution, backtrack
+    assignment[var] = None
+    return None
+
+
+def generate_3sat_instance(n, k) -> Formula:
     """
     Generates a random 3-SAT instance.
 
@@ -32,7 +146,7 @@ def generate_3sat_instance(n, k) -> list[tuple[int]]:
     return clauses
 
 
-def generate_msat_instance(n: int, m: int, k: int) -> list[tuple[int]]:
+def generate_msat_instance(n: int, m: int, k: int) -> Formula:
     """
     Generates a random m-SAT instance with n variables, m variables per clause, and k clauses.
 
@@ -61,7 +175,7 @@ def generate_msat_instance(n: int, m: int, k: int) -> list[tuple[int]]:
     return clauses
 
 
-def render(clauses: list[tuple[int]], or_symbol="∨", and_symbol="∧") -> str:
+def render(clauses: Formula, or_symbol="∨", and_symbol="∧") -> str:
     """
     Renders a list of 3-SAT clauses into a human-readable string.
 
@@ -76,7 +190,7 @@ def render(clauses: list[tuple[int]], or_symbol="∨", and_symbol="∧") -> str:
     return f" {and_symbol} ".join(clause_strings)
 
 
-def render_clause(clause: tuple[int], or_symbol: str = "∨") -> str:
+def render_clause(clause: Clause, or_symbol: str = "∨") -> str:
     """
     Renders a single clause into a human-readable string.
 
@@ -89,39 +203,13 @@ def render_clause(clause: tuple[int], or_symbol: str = "∨") -> str:
     return f"({f' {or_symbol} '.join(variable_names[literal] for literal in clause)})"
 
 
-def solve_cnf_instance(clauses: list[tuple[int]]) -> Optional[dict]:
-    solver = z3.Solver()
-
-    # Generate Z3 Boolean variables. Assuming variables in clauses are 1-indexed and can be negative for negation.
-    max_var_index = max(abs(var) for clause in clauses for var in clause)
-    variables = {i: z3.Bool(f"x{i}") for i in range(1, max_var_index + 1)}
-
-    # translate into z3 clauses
-    for clause in clauses:
-        # Convert clause to Z3 format
-        z3_clause = z3.Or(
-            [
-                variables[abs(var)] if var > 0 else z3.Not(variables[abs(var)])
-                for var in clause
-            ]
-        )
-        solver.add(z3_clause)
-
-    # Solve the instance
-
-    if solver.check() == z3.sat:
-        model = solver.model()
-        return {symbol.name(): bool(model[symbol]) for symbol in model.decls()}
-    else:
-        return None  # No solution found
-
-
 def print_stats(n, m, k, iterations=1000):
     import time
 
-    gen_times = []
-    render_times = []
-    solve_times = []
+    gen_time = 0
+    render_time = 0
+    solve_time = 0
+    dpll_time = 0
     sat_count = 0
 
     example_sat = None
@@ -130,15 +218,15 @@ def print_stats(n, m, k, iterations=1000):
     for _ in range(iterations):
         gen_start = time.time()
         clauses = generate_msat_instance(n, m, k)
-        gen_times.append(time.time() - gen_start)
+        gen_time += time.time() - gen_start
 
         render_start = time.time()
-        rendered_formula = render(clauses)
-        render_times.append(time.time() - render_start)
+        render(clauses)
+        render_time += time.time() - render_start
 
-        solve_start = time.time()
-        model = solve_cnf_instance(clauses)  # Replace with actual Z3 call
-        solve_times.append(time.time() - solve_start)
+        dpll_start = time.time()
+        model = dpll(clauses)
+        dpll_time += time.time() - dpll_start
 
         if model is not None:
             sat_count += 1
@@ -149,9 +237,10 @@ def print_stats(n, m, k, iterations=1000):
             if example_unsat is None:
                 example_unsat = clauses
 
-    print(f"Total generation time: {sum(gen_times):.2f}s")
-    print(f"Total rendering time: {sum(render_times):.2f}s")
-    print(f"Total solving time: {sum(solve_times):.2f}s")
+    print(f"Total generation time: {gen_time:.2f}s")
+    print(f"Total rendering time: {render_time:.2f}s")
+    print(f"Total Z3 solving time: {solve_time:.2f}s")
+    print(f"Total DPLL solving time: {dpll_time:.2f}s")
     print(f"Percentage of SAT instances: {sat_count / iterations * 100:.2f}%")
     print(f"Example SAT instance: {example_sat}")
     print(f"Example UNSAT instance: {example_unsat}")
@@ -159,6 +248,7 @@ def print_stats(n, m, k, iterations=1000):
 
 def main():
     import sys
+
     n, m, k = (int(sys.argv[x]) for x in (1, 2, 3))
     print(f"Stats for {n} variables, {m} variables per clause, {k} clauses")
     print_stats(n, m, k)
